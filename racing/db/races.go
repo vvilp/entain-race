@@ -2,11 +2,13 @@ package db
 
 import (
 	"database/sql"
-	"github.com/golang/protobuf/ptypes"
-	_ "github.com/mattn/go-sqlite3"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	_ "github.com/mattn/go-sqlite3"
 
 	"git.neds.sh/matty/entain/racing/proto/racing"
 )
@@ -17,7 +19,7 @@ type RacesRepo interface {
 	Init() error
 
 	// List will return a list of races.
-	List(filter *racing.ListRacesRequestFilter) ([]*racing.Race, error)
+	List(filter *racing.ListRacesRequestFilter, order *racing.ListRacesRequestOrder) ([]*racing.Race, error)
 }
 
 type racesRepo struct {
@@ -42,7 +44,7 @@ func (r *racesRepo) Init() error {
 	return err
 }
 
-func (r *racesRepo) List(filter *racing.ListRacesRequestFilter) ([]*racing.Race, error) {
+func (r *racesRepo) List(filter *racing.ListRacesRequestFilter, order *racing.ListRacesRequestOrder) ([]*racing.Race, error) {
 	var (
 		err   error
 		query string
@@ -50,8 +52,8 @@ func (r *racesRepo) List(filter *racing.ListRacesRequestFilter) ([]*racing.Race,
 	)
 
 	query = getRaceQueries()[racesList]
-
 	query, args = r.applyFilter(query, filter)
+	query = r.applyOrder(query, order)
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -70,7 +72,6 @@ func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFil
 	if filter == nil {
 		return query, args
 	}
-
 	if len(filter.MeetingIds) > 0 {
 		clauses = append(clauses, "meeting_id IN ("+strings.Repeat("?,", len(filter.MeetingIds)-1)+"?)")
 
@@ -79,11 +80,35 @@ func (r *racesRepo) applyFilter(query string, filter *racing.ListRacesRequestFil
 		}
 	}
 
+	// Optional filter -> bool Visible
+	if filter.Visible != nil {
+		clauses = append(clauses, "visible = ?")
+		args = append(args, *filter.Visible)
+	}
+
 	if len(clauses) != 0 {
 		query += " WHERE " + strings.Join(clauses, " AND ")
 	}
 
 	return query, args
+}
+
+func (r *racesRepo) applyOrder(query string, order *racing.ListRacesRequestOrder) string {
+
+	if order != nil {
+		// Provide orderby column name
+		if len(order.OrderBy) != 0 {
+			query += fmt.Sprintf(" ORDER BY  %s ", order.OrderBy)
+		}
+		// Provide orderType (ASC or DESC) only when orderby column was given.
+		if len(order.OrderBy) != 0 && (order.OrderType == "ASC" || order.OrderType == "DESC") {
+			query += order.OrderType
+		}
+	} else {
+		//by default, order by advertised_start_time
+		query += " ORDER BY advertised_start_time "
+	}
+	return query
 }
 
 func (m *racesRepo) scanRaces(
