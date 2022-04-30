@@ -135,9 +135,6 @@ func (m *racesRepo) scanRaces(
 
 		race.AdvertisedStartTime = ts
 
-		fmt.Println(race.AdvertisedStartTime)
-		fmt.Println(advertisedStart)
-
 		if time.Now().After(advertisedStart) {
 			// if advertised_start_time is in the past, status set to CLOSE
 			race.Status = "CLOSE"
