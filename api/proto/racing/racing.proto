@@ -11,13 +11,29 @@ service Racing {
   rpc ListRaces(ListRacesRequest) returns (ListRacesResponse) {
     option (google.api.http) = { post: "/v1/list-races", body: "*" };
   }
+
+  rpc GetRace(GetRaceRequest) returns (GetRaceResponse) {
+    option (google.api.http) = { post: "/v1/get-race", body: "*" };
+  }
 }
+
+// Request GetRace
+message GetRaceRequest {
+  string id =1;
+}
+
+// Response GetRace
+message GetRaceResponse {
+  Race race = 1;
+}
+
 
 /* Requests/Responses */
 
 // Request for ListRaces call.
 message ListRacesRequest {
   ListRacesRequestFilter filter = 1;
+  ListRacesRequestOrder order = 2;
 }
 
 // Response to ListRaces call.
@@ -28,6 +44,15 @@ message ListRacesResponse {
 // Filter for listing races.
 message ListRacesRequestFilter {
   repeated int64 meeting_ids = 1;
+  optional bool visible = 2;
+}
+
+// Order for listing races
+message ListRacesRequestOrder {
+  // Order by key
+  string orderBy = 1;
+  // OrderType : ASC or DESC
+  string orderType = 2;
 }
 
 /* Resources */
@@ -46,4 +71,6 @@ message Race {
   bool visible = 5;
   // AdvertisedStartTime is the time the race is advertised to run.
   google.protobuf.Timestamp advertised_start_time = 6;
+  // All races that have an `advertised_start_time` in the past should reflect 'CLOSED'. Otherwise 'OPEN'
+  string status = 7;
 }
